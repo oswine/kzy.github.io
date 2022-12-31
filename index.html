@@ -1,0 +1,173 @@
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="initial-scale=1,maximum-scale=1,user-scalable=no"
+  />
+  <title>
+    Access features with pointer events | Sample | ArcGIS API for JavaScript
+    4.25
+  </title>
+
+  <style>
+    html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+    #info {
+      background-color: white;
+      opacity: 0.75;
+      color: black;
+      font-size: 18pt;
+      padding: 8px;
+      visibility: hidden;
+    }
+  </style>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.19/esri/themes/light/main.css">
+  <script src="https://js.arcgis.com/4.19/"></script>
+
+  <script>
+    require([
+      "esri/config",
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/Graphic",
+      "esri/layers/GeoJSONLayer"], function (esriConfig, Map, MapView, FL) {
+
+      esriConfig.apiKey = "AAPK56e3ac027f044c4089d8ceec232fc05dYaOuzVRzm8tMRqvzOvDvIEevbqJ85yppn9PacU6cy4duurJrVK9wo_8BcWO8i8bi";
+      const layer_2022 = new FL({
+        url: "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Earthquakes_Since1970/FeatureServer/0",
+        outFields: ["*"]
+      });
+
+
+      const map = new Map({
+        basemap: "osm-standard",
+
+        layers: [layer_2022]
+      });
+
+
+      const view = new MapView({
+        map: map,
+        center: [-119, 35.027], // Longitude, latitude
+        zoom: 3, // Zoom level
+        container: "viewDiv", // Div element
+        highlightOptions: {
+          color: "green"
+        }
+      });
+
+      view.ui.add("info", "top-right");
+      view
+              .when()
+              .then(() => {
+                return layer_2022.when();
+              })
+              .then((layer) => {
+
+                return view.whenLayerView(layer);
+              })
+              .then((layerView) => {
+                view.on("pointer-move", eventHandler);
+                view.on("pointer-down", eventHandler);
+
+                function eventHandler(event) {
+                  // only include graphics from hurricanesLayer in the hitTest
+                  const opts = {
+                    include: layer_2022
+                  };
+                  // the hitTest() checks to see if any graphics from the hurricanesLayer
+                  // intersect the x, y coordinates of the pointer
+                  view.hitTest(event, opts).then(getGraphics);
+                }
+
+                let highlight, currentYear, currentName;
+
+                function getGraphics(response) {
+                  // the topmost graphic from the hurricanesLayer
+                  // and display select attribute values from the
+                  // graphic to the user
+                  if (response.results.length) {
+                    const graphic = response.results[0].graphic;
+
+                    const attributes = graphic.attributes;
+
+                    const sec = attributes.sec;
+                    const magnitude = attributes.magnitude
+
+                    const name = attributes.name;
+                    const year = attributes.year_;
+                    const id = attributes.objectid;
+
+                    if (
+                            highlight &&
+                            (currentName !== name || currentYear !== year)
+                    ) {
+                      highlight.remove();
+                      highlight = null;
+                      return;
+                    }
+
+                    if (highlight) {
+                      return;
+                    }
+
+                    document.getElementById("info").style.visibility = "visible";
+                    document.getElementById("name").innerHTML = name;
+
+                    document.getElementById("magnitude").innerHTML ="magnitude: "+ magnitude;
+                    document.getElementById("sec").innerHTML = "sec"+":"+sec+"s";
+                    document.getElementById("year").innerHTML = year;
+
+                    // highlight all features belonging to the same hurricane as the feature
+                    // returned from the hitTest
+                    const query = layerView.createQuery();
+                    query.where =  "  NAME = '" + name + "'";
+                    layerView.queryObjectIds(query).then((ids) => {
+                      if (highlight) {
+                        highlight.remove();
+                      }
+                      highlight = layerView.highlight(ids);
+                      currentYear = year;
+                      currentName = name;
+                    });
+                  } else {
+                    // remove the highlight if no features are
+                    // returned from the hitTest
+                    if (highlight) {
+                      highlight.remove();
+                      highlight = null;
+                    }
+                    document.getElementById("info").style.visibility = "hidden";
+                  }
+                }
+              });
+
+
+
+
+    });
+  </script>
+
+</head>
+
+<body>
+<div id="viewDiv"></div>
+<div id="info">
+  <span id="name"></span> <br />
+
+  <span id="magnitude"></span> <br />
+  <span id="sec"></span> <br />
+  <span id="year"></span></div>
+</body>
+
+</html>
